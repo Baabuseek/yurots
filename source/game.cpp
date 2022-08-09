@@ -3805,10 +3805,6 @@ void Game::checkCreature(unsigned long id)
 				std::cout << "CheckPlayer NULL tile: " << player->getName() << std::endl;
 				return;
 			}
-
-#ifdef CVS_DAY_CYCLE
-			player->sendWorldLightLevel(lightlevel, 0xD7);
-#endif //CVS_DAY_CYCLE
 #ifdef TR_ANTI_AFK
 			player->checkAfk(thinkTicks);
 #endif //TR_ANTI_AF
@@ -6132,6 +6128,7 @@ void Game::creatureChangeLight(Player* player, int time, unsigned char lightleve
 void Game::checkLight(int t)
 {
 	OTSYS_THREAD_LOCK_CLASS lockClass(gameLock, "Game::checkLight()");
+
 	addEvent(makeTask(10000, boost::bind(&Game::checkLight, this, 10000)));
 
 	light_hour = light_hour + light_hour_delta;
@@ -6146,13 +6143,18 @@ void Game::checkLight(int t)
 	}
 
 	int newlightlevel = lightlevel;
+	bool lightChange = false;
 	switch(light_state){
-	case LIGHT_STATE_SUNRISE:
-		newlightlevel += (LIGHT_LEVEL_DAY - LIGHT_LEVEL_NIGHT)/30;
-		break;
-	case LIGHT_STATE_SUNSET:
-		newlightlevel -= (LIGHT_LEVEL_DAY - LIGHT_LEVEL_NIGHT)/30;
-		break;
+    	case LIGHT_STATE_SUNRISE:
+    		newlightlevel += (LIGHT_LEVEL_DAY - LIGHT_LEVEL_NIGHT)/30;
+    		lightChange = true;
+    		break;
+    	case LIGHT_STATE_SUNSET:
+    		newlightlevel -= (LIGHT_LEVEL_DAY - LIGHT_LEVEL_NIGHT)/30;
+    		lightChange = true;
+    		break;
+   		default:
+            break;
 	}
 
 	if(newlightlevel <= LIGHT_LEVEL_NIGHT){
@@ -6163,8 +6165,15 @@ void Game::checkLight(int t)
 		lightlevel = LIGHT_LEVEL_DAY;
 		light_state = LIGHT_STATE_DAY;
 	}
-	else{
+	else
+	{
 		lightlevel = newlightlevel;
+	}
+	
+	if(lightChange){
+		for(AutoList<Player>::listiterator it = Player::listPlayer.list.begin(); it != Player::listPlayer.list.end(); ++it){
+			(*it).second->sendWorldLightLevel(lightlevel, 0xD7);
+		}
 	}
 }
 
